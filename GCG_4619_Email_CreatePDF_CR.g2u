@@ -1,0 +1,332 @@
+Program.Sub.ScreenSU.Start
+Gui.Form..Create
+Gui.Form..Size(4710,2490)
+Gui.Form..MinX(0)
+Gui.Form..MinY(0)
+Gui.Form..Position(0,0)
+Gui.Form..BackColor(-2147483633)
+Gui.Form..MousePointer(0)
+Gui.Form..Event(UnLoad,Form_UnLoad)
+Gui.Form..Caption("CreatePDF/Email")
+Gui.Form.lblNum.Create(Label,"Label",True,3960,255,0,120,180,True,0,"Arial",8,-2147483633,0)
+Gui.Form.txtNum.Create(TextBox,"",True,1110,300,0,120,405,True,0,"Arial",8,-2147483643,1)
+
+Gui.Form.txtChangedLabel.Create(TextBox,"",True,2385,300,0,120,1110,True,0,"Arial",8,-2147483643,1)
+Gui.Form.lblNum2.Create(Label,"Change file name and subject to",True,2475,255,0,105,885,True,0,"Arial",8,-2147483633,0)
+Gui.Form.chkAck.Create(CheckBox)
+Gui.Form.chkAck.Size(1800,360)
+Gui.Form.chkAck.Position(2685,1095)
+Gui.Form.chkAck.Caption("Acknowledgement")
+Gui.Form.chkAck.Event(Click,chkAck_Click)
+Gui.Form.chkAck.Visible(False)
+
+Gui.Form.cmdCreatePDF.Create(Button)
+Gui.Form.cmdCreatePDF.Size(1110,375)
+Gui.Form.cmdCreatePDF.Position(105,1590)
+Gui.Form.cmdCreatePDF.Caption("Create PDF")
+Gui.Form.cmdCreatePDF.Event(Click,cmdCreatePDF_Click)
+Gui.Form.cmdEmail.Create(Button)
+Gui.Form.cmdEmail.Size(1080,375)
+Gui.Form.cmdEmail.Position(1440,1590)
+Gui.Form.cmdEmail.Caption("Email")
+Gui.Form.cmdEmail.Event(Click,cmdEmail_Click)
+
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'BN July 6, 2017
+'At Crystal Report Viewer, attach this script to Script-1(hook 42210), a custom form will be popped up having 2 buttons:
+	'Create PDF button: Automatically export to PDF and place in folder C:\Reports
+	'Email button: 		Automatically export to PDF and place in folder C:\Reports\Emails and attach to a new email in Outlook 
+					   'User will manually input the email address in Outlook
+
+'PDF file name definition:
+'	o 	Quotes(Report ID: 1)							Cust#_CustName_RFQ_XXXXXX.pdf where XXXXXX equals the Quote number. 
+'	o	Sales Order Acknowledgments(Report ID: 54):		Cust#_CustName_SOA_XXXXX.pdf where XXXXXX equals SO number
+'	o	Invoices(Report ID: 55) 						Cust#_CustName_Invoice_XXXXXXX.pdf where XXXXXXX equals Invoice Number
+'	o	Purchase Orders(Report ID: 2801)				Vend#_VendName_PO_XXXXXXX-XX.pdf where XXXXXX-XX equals PO number
+	
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+
+F.odbc.Connection!con.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass,600)
+
+'Script-1 button from Crystal Report Previewer
+f.Intrinsic.Control.If(v.Caller.Hook,=,42210)
+	f.Intrinsic.Control.If(v.Passed.DATA-ReportId,=,1)
+		gui.Form.lblNum.Text("Quote")
+		gui.Form..show
+	f.Intrinsic.Control.ElseIf(v.Passed.DATA-ReportId,=,54)
+		gui.Form.lblNum.Text("Sales Order")	
+		gui.Form..show
+	f.Intrinsic.Control.ElseIf(v.Passed.DATA-ReportId,=,55)
+		gui.Form.lblNum.Text("Invoice/Credit Memo")
+		gui.Form.chkAck.Visible(True)
+		gui.Form..show
+	f.Intrinsic.Control.ElseIf(v.Passed.DATA-ReportId,=,2801)
+		gui.Form.lblNum.Text("Purchase Order")
+		gui.Form..Show	
+	f.Intrinsic.Control.Else
+		f.Intrinsic.UI.Msgbox("This report does not support using Script-1 button","Not supporting program")
+	f.Intrinsic.Control.EndIf
+f.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4619_Email_CreatePDF_CR.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.Main.End
+
+Program.Sub.Form_UnLoad.Start
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+
+f.ODBC.Connection!con.Close
+f.Intrinsic.Control.End
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4619_Email_CreatePDF_CR.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.Form_UnLoad.End
+
+Program.Sub.cmdEmail_Click.Start
+F.Intrinsic.Control.SetErrorHandler("cmdEmail_Click_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+
+f.Intrinsic.Control.CallSub(create_pdf,"Purpose","Create PDF and Email")
+f.Intrinsic.Control.CallSub(form_unload)
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("cmdEmail_Click_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4619_Email_CreatePDF_CR.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.cmdEmail_Click.End
+
+Program.Sub.cmdCreatePDF_Click.Start
+F.Intrinsic.Control.SetErrorHandler("cmdCreatePDF_Click_Err")
+F.Intrinsic.Control.ClearErrors
+v.Local..BulkDeclareString(sError)
+
+f.Intrinsic.Control.CallSub(create_pdf,"Purpose","Create PDF Only")
+f.Intrinsic.Control.CallSub(form_unload)
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("cmdCreatePDF_Click_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4619_Email_CreatePDF_CR.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.cmdCreatePDF_Click.End
+
+Program.Sub.Create_PDF.Start
+F.Intrinsic.Control.SetErrorHandler("Create_PDF_Err")
+F.Intrinsic.Control.ClearErrors
+v.Local..BulkDeclareString(sError, sSQL, sSourceReportFile, sTargetReportFile, sNumber, sFileName, sRet, sLabel, sName, sTerminal, sBody, sSubject, sMsg, sPO, sRev, sHold, sFolder)
+v.Local..BulkDeclareBoolean(bPDF_Exist)
+
+f.Intrinsic.UI.InvokeWaitDialog("Verifying data...")
+f.Intrinsic.String.LPad(v.Caller.Terminal,"0",3,v.Local.sTerminal)
+'Double check the input number
+f.Intrinsic.Control.If(v.Passed.DATA-ReportId,=,1)
+	'V_BI_LASER_QUOTE - Quote
+	f.Intrinsic.String.LPad(v.Screen.Form!txtNum.Text.Trim,"0",7,v.Local.sNumber)
+	F.Intrinsic.String.Build("Select Top 1 Customer from V_BI_LASER_QUOTE where Quote = '{0}' and TERMINAL_NO = '{1}'",v.Local.sNumber,v.Local.sTerminal,v.Local.sSQL)	
+	v.Local.sLabel.Set("RFQ")
+	v.Local.sFolder.Set("QUOTE")		
+f.Intrinsic.Control.ElseIf(v.Passed.DATA-ReportId,=,54)
+	'V_BI_ACKNWLDGMNT - Order_No
+	f.Intrinsic.String.LPad(v.Screen.Form!txtNum.Text.Trim,"0",7,v.Local.sNumber)
+	F.Intrinsic.String.Build("Select Top 1 Customer from V_BI_ACKNWLDGMNT where Order_No = '{0}' and TERMINAL = '{1}'",v.Local.sNumber,v.Local.sTerminal,v.Local.sSQL)	
+	f.Intrinsic.String.Concat("Your Sales Order Acknowledgement is attached.",v.Ambient.NewLine,"Thank you for your order.",v.Local.sBody)
+	v.Local.sLabel.Set("SOA")
+	V.Local.sFolder.Set("SOA")
+f.Intrinsic.Control.ElseIf(v.Passed.DATA-ReportId,=,55)
+	'V_PRT_LASER_INVOICE - Invoice_No	
+	f.Intrinsic.String.LPad(v.Screen.Form!txtNum.Text.Trim,"0",6,v.Local.sNumber)
+	F.Intrinsic.String.Build("Select Top 1 Customer from V_PRT_LASER_INVOICE where Invoice_No = '{0}' and TERMINAL_NO = '{1}'",v.Local.sNumber,v.Local.sTerminal,v.Local.sSQL)
+	v.Local.sLabel.Set("Invoice")
+	V.Local.sFolder.Set("INVOICE")
+f.Intrinsic.Control.ElseIf(v.Passed.DATA-ReportId,=,2801)
+	'V_PRT_LASER_PO - PO_NO	
+	f.Intrinsic.String.Split(v.Screen.Form!txtNum.Text.Trim,"-",v.Local.sHold)
+	f.Intrinsic.Control.If(v.Local.sHold.UBound,<>,1)
+		f.Intrinsic.UI.Msgbox("Please enter Purchase Order following format : 'PONumber-Rev'. If Rev is blank, enter 'PONumber-'","Invalid PO")
+		f.Intrinsic.Control.ExitSub
+	f.Intrinsic.Control.Else
+		f.Intrinsic.String.LPad(v.Local.sHold(0),"0",7,v.Local.sNumber)
+		F.Intrinsic.String.Build("Select Top 1 Vendor from V_PRT_LASER_PO where PO_NO = '{0}' and TERMINAL_NO = '{1}' and SEQ_1 = '{2}'",v.Local.sNumber,v.Local.sTerminal,v.Local.sHold(1),v.Local.sSQL)
+		f.Intrinsic.String.Concat(v.Local.sNumber,"_",v.Local.sHold(1),v.Local.sNumber)
+		v.Local.sLabel.Set("PO")
+		V.Local.sFolder.Set("PURCHASE ORDER")
+	f.Intrinsic.Control.EndIf	
+f.Intrinsic.Control.EndIf
+
+
+'Retrieve Customer or Vendor depending on context
+f.ODBC.Connection!con.ExecuteAndReturn(v.Local.sSQL,v.Local.sRet)
+f.Intrinsic.Control.If(v.Local.sRet,=,"")
+	f.Intrinsic.UI.CloseWaitDialog
+	f.Intrinsic.UI.Msgbox("No record found","Invalid number")
+	f.Intrinsic.Control.ExitSub
+f.Intrinsic.Control.Else
+	f.Intrinsic.Control.If(v.Passed.DATA-ReportId,<>,2801)
+		f.Intrinsic.String.Build("Select ltrim(rtrim(Name_Customer)) from V_Customer_Master where Customer = '{0}'",v.Local.sRet,v.Local.sSQL)		
+	f.Intrinsic.Control.Else
+		f.Intrinsic.String.Build("Select ltrim(rtrim(Name_Vendor)) from V_Vendor_Master where Vendor = '{0}'",v.Local.sRet,v.Local.sSQL)	
+	f.Intrinsic.Control.EndIf
+	f.ODBC.Connection!con.ExecuteAndReturn(v.Local.sSQL,v.Local.sName)
+	f.Intrinsic.String.Replace(v.Local.sName,"/","_",v.Local.sName)
+
+	'Handle Form_Title for specific case Invoice/Credit Memo following what Kristal wants
+	f.Intrinsic.Control.If(v.Passed.DATA-ReportId,=,55)
+		f.Intrinsic.String.Build("Select Top 1 Form_Title from V_PRT_LASER_INVOICE where Invoice_No = '{0}' and TERMINAL_NO = '{1}'",v.Local.sNumber,v.Local.sTerminal,v.Local.sSQL)
+		f.ODBC.Connection!con.ExecuteAndReturn(v.Local.sSQL,v.Local.sLabel)		
+	f.Intrinsic.Control.EndIf
+	
+	f.Intrinsic.Control.If(v.Screen.Form!txtChangedLabel.Text.Trim,<>,"")
+		v.Local.sLabel.Set(v.Screen.Form!txtChangedLabel.Text.Trim)
+	f.Intrinsic.Control.EndIf
+	f.Intrinsic.String.Build("Your {0} is attached.{1}Thank you.",v.Local.sLabel.Trim,v.Ambient.NewLine,v.Local.sBody)
+			
+	f.Intrinsic.String.Build("{0}_{1}_{2}_{3}",v.Local.sRet.Trim,v.Local.sName,v.Local.sLabel.Trim,v.Local.sNumber,v.Local.sFileName)
+f.Intrinsic.Control.EndIf
+
+
+
+f.Intrinsic.UI.ChangeWaitStatus("Processing...")
+f.Intrinsic.Control.CallSub(check_folders)
+V.Local.sSourceReportFile.Set(V.Passed.DATA-ReportCopyPDF)
+
+'Save PDF to the proper folder depending on Purpose
+F.Intrinsic.Control.If(V.Args.Purpose,=,"Create PDF Only")
+	f.Intrinsic.String.Build("C:\Reports\{0}\{1}.pdf",V.Local.sFolder,v.Local.sFileName,v.Local.sTargetReportFile)
+f.Intrinsic.Control.ElseIf(v.Args.Purpose,=,"Create PDF and Email")
+	f.Intrinsic.String.Build("C:\Reports\Emails\{0}\{1}.pdf",V.Local.sFolder,V.Local.sFileName,v.Local.sTargetReportFile)
+f.Intrinsic.Control.EndIf
+Function.Intrinsic.File.Exists (v.Local.sTargetReportFile, v.Local.bPDF_Exist)
+f.Intrinsic.Control.If(v.Local.bPDF_Exist,=,True)
+	Function.Intrinsic.File.DeleteFile(v.Local.sTargetReportFile)
+f.Intrinsic.Control.EndIf
+F.Intrinsic.File.CopyFile(V.Local.sSourceReportFile,v.Local.sTargetReportFile)
+
+f.Intrinsic.UI.CloseWaitDialog
+gui.Form..Visible(False)
+
+'Finalize
+F.Intrinsic.Control.If(V.Args.Purpose,=,"Create PDF Only")
+	f.Intrinsic.String.Concat(v.Local.sTargetReportFile," was created successfully",v.Local.sMsg)
+	f.Intrinsic.UI.Msgbox(v.Local.sMsg,"End program")
+f.Intrinsic.Control.ElseIf(v.Args.Purpose,=,"Create PDF and Email")	
+	F.Automation.MSOutlook.ComposeEmailModal("Please Enter a Valid Email",V.Local.sFileName,V.Local.sBody,V.Local.sTargetReportFile)
+	
+f.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Create_PDF_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	f.Intrinsic.UI.CloseWaitDialog
+	Function.Intrinsic.String.Concat("Project: GCG_4619_Email_CreatePDF_CR.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.Create_PDF.End
+
+Program.Sub.chkAck_Click.Start
+gui.Form.txtChangedLabel.Text("SOA")
+Program.Sub.chkAck_Click.End
+
+Program.Sub.Check_Folders.Start
+F.Intrinsic.Control.SetErrorHandler("Check_Folders_Err")
+F.Intrinsic.Control.ClearErrors
+V.Local.sError.Declare(String)
+v.Local.bCheckDir.Declare(boolean)
+
+'Check folders
+Function.Intrinsic.File.DirExists("C:\Reports", v.Local.bCheckDir)
+f.Intrinsic.Control.If(v.Local.bCheckDir,=,False)
+	Function.Intrinsic.File.CreateDir("C:\Reports")	
+f.Intrinsic.Control.EndIf
+
+v.Local.bCheckDir.Set(false)
+Function.Intrinsic.File.DirExists("C:\Reports\Emails", v.Local.bCheckDir)
+f.Intrinsic.Control.If(v.Local.bCheckDir,=,False)
+	Function.Intrinsic.File.CreateDir("C:\Reports\Emails")	
+f.Intrinsic.Control.EndIf
+v.Local.bCheckDir.Set(false)
+Function.Intrinsic.File.DirExists("C:\Reports\SOA", v.Local.bCheckDir)
+f.Intrinsic.Control.If(v.Local.bCheckDir,=,False)
+	Function.Intrinsic.File.CreateDir("C:\Reports\SOA")	
+f.Intrinsic.Control.EndIf
+v.Local.bCheckDir.Set(false)
+Function.Intrinsic.File.DirExists("C:\Reports\INVOICE", v.Local.bCheckDir)
+f.Intrinsic.Control.If(v.Local.bCheckDir,=,False)
+	Function.Intrinsic.File.CreateDir("C:\Reports\INVOICE")	
+f.Intrinsic.Control.EndIf
+v.Local.bCheckDir.Set(false)
+Function.Intrinsic.File.DirExists("C:\Reports\QUOTE", v.Local.bCheckDir)
+f.Intrinsic.Control.If(v.Local.bCheckDir,=,False)
+	Function.Intrinsic.File.CreateDir("C:\Reports\QUOTE")	
+f.Intrinsic.Control.EndIf
+v.Local.bCheckDir.Set(false)
+Function.Intrinsic.File.DirExists("C:\Reports\PURCHASE ORDER", v.Local.bCheckDir)
+f.Intrinsic.Control.If(v.Local.bCheckDir,=,False)
+	Function.Intrinsic.File.CreateDir("C:\Reports\PURCHASE ORDER")	
+f.Intrinsic.Control.EndIf
+
+v.Local.bCheckDir.Set(false)
+Function.Intrinsic.File.DirExists("C:\Reports\Emails\SOA", v.Local.bCheckDir)
+f.Intrinsic.Control.If(v.Local.bCheckDir,=,False)
+	Function.Intrinsic.File.CreateDir("C:\Reports\Emails\SOA")	
+f.Intrinsic.Control.EndIf
+v.Local.bCheckDir.Set(false)
+Function.Intrinsic.File.DirExists("C:\Reports\Emails\INVOICE", v.Local.bCheckDir)
+f.Intrinsic.Control.If(v.Local.bCheckDir,=,False)
+	Function.Intrinsic.File.CreateDir("C:\Reports\Emails\INVOICE")	
+f.Intrinsic.Control.EndIf
+v.Local.bCheckDir.Set(false)
+Function.Intrinsic.File.DirExists("C:\Reports\Emails\QUOTE", v.Local.bCheckDir)
+f.Intrinsic.Control.If(v.Local.bCheckDir,=,False)
+	Function.Intrinsic.File.CreateDir("C:\Reports\Emails\QUOTE")	
+f.Intrinsic.Control.EndIf
+v.Local.bCheckDir.Set(false)
+Function.Intrinsic.File.DirExists("C:\Reports\Emails\PURCHASE ORDER", v.Local.bCheckDir)
+f.Intrinsic.Control.If(v.Local.bCheckDir,=,False)
+	Function.Intrinsic.File.CreateDir("C:\Reports\Emails\PURCHASE ORDER")	
+f.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Check_Folders_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: Test_4619.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.Check_Folders.End
+
+Program.Sub.Comments.Start
+${$0$}$$}$$}$7/6/2017 11:36:08 AM$}$False
+Program.Sub.Comments.End
